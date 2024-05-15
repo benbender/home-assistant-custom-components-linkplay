@@ -18,6 +18,8 @@ import binascii
 import urllib.request
 import string
 import aiohttp
+import ssl
+import os
 
 from http import HTTPStatus
 from aiohttp.client_exceptions import ClientError
@@ -107,6 +109,9 @@ CONF_MULTIROOM_WIFIDIRECT = 'multiroom_wifidirect'
 CONF_VOLUME_STEP = 'volume_step'
 CONF_LEDOFF = 'led_off'
 CONF_UUID = 'uuid'
+
+CONF_CERT_FILENAME = 'client.pem'
+
 
 DEFAULT_ICECAST_UPDATE = 'StationName'
 DEFAULT_MULTIROOM_WIFIDIRECT = False
@@ -230,19 +235,26 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
 
     state = STATE_IDLE
 
-    websession = async_get_clientsession(hass)
+    dirname = os.path.dirname(__file__)
+    certpath = os.path.join(dirname, CONF_CERT_FILENAME)
+    ssl_ctx = ssl.create_default_context(purpose=ssl.Purpose.SERVER_AUTH)
+    ssl_ctx.load_cert_chain(certfile=certpath)
+    ssl_ctx.check_hostname = False
+    ssl_ctx.verify_mode = ssl.CERT_NONE
+
+    websession = async_get_clientsession(hass, verify_ssl = False)
     response = None
     
     try:
-        initurl = "{}://{}/httpapi.asp?command=getStatus"
-        response = await websession.get(initurl.format(protocol,host))
+        initurl = "{}://{}/httpapi.asp?command=getStatusEx"
+        response = await websession.get(initurl.format(protocol,host), ssl = ssl_ctx)
 
     except (asyncio.TimeoutError, aiohttp.ClientError) as error:
         if default_protocol:
             try:
                 protocol = "https"
                 initurl = "{}://{}/httpapi.asp?command=getStatusEx"
-                response = await websession.get(initurl.format(protocol,host), ssl=False)
+                response = await websession.get(initurl.format(protocol,host), ssl=ssl_ctx)
 
             except (asyncio.TimeoutError, aiohttp.ClientError) as error:
                 _LOGGER.warning(
@@ -414,9 +426,17 @@ class LinkPlayDevice(MediaPlayerEntity):
             timeout = API_TIMEOUT
         
         try:
-            websession = async_get_clientsession(self.hass)
+            dirname = os.path.dirname(__file__)
+            certpath = os.path.join(dirname, CONF_CERT_FILENAME)
+            ssl_ctx = ssl.create_default_context(purpose=ssl.Purpose.SERVER_AUTH)
+            ssl_ctx.load_cert_chain(certfile=certpath)
+            ssl_ctx.check_hostname = False
+            ssl_ctx.verify_mode = ssl.CERT_NONE
+
+            websession = async_get_clientsession(self.hass, verify_ssl = False )
+
             async with async_timeout.timeout(timeout):
-                response = await websession.get(url, ssl=False)
+                response = await websession.get(url, ssl=ssl_ctx)
 
         except (asyncio.TimeoutError, aiohttp.ClientError) as error:
             _LOGGER.warning(
