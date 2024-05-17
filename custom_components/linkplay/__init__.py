@@ -1,10 +1,10 @@
-"""
-Support for LinkPlay based devices.
+"""Support for LinkPlay based devices.
 
 For more details about this platform, please refer to the documentation at
 https://github.com/nagyrobi/home-assistant-custom-components-linkplay
 """
 import logging
+
 import voluptuous as vol
 
 from homeassistant.const import ATTR_ENTITY_ID
